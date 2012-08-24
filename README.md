@@ -19,8 +19,8 @@ If you write a symbol that contains `.` or `:`, Torpedo will turn it into a comp
 application. For example:
 
 ```clojure
-(>>> (first.rest [1 2 3]))   -> ((comp first rest) [1 2 3])
-(def sum (>>> reduce:+))     -> (def sum (partial reduce +))
+(>>> (first.rest [1 2 3]))   ; ((comp first rest) [1 2 3])
+(def sum (>>> reduce:+))     ; (def sum (partial reduce +))
 ```
 
 Composition takes higher precedence than partial application. However, you can write two consecutive
@@ -37,6 +37,17 @@ You can quote a symbol to preserve it literally:
 (def the-quoted-symbol-q (>>> ''q))
 ```
 
+You can also compose with numbers to select individual arguments. For example:
+
+```clojure
+(def count-the-first (>>> count.0))
+(count-the-first [1 2 3] [4 5])     ; 3
+
+(def count-the-last (>>> count.-1))
+(count-the-last [1 2 3] [4 5] [6])  ; 1
+(count-the-last [1 2 3])            ; 3
+```
+
 ### Function lifting
 
 You can prepend subexpressions with `@` to lift them into functional mode. This works for maps, sets,
@@ -44,9 +55,9 @@ vectors, and lists. For maps, sets, and vectors, it transposes function applicat
 element. For example:
 
 ```clojure
-(>>> (@[first second] [1 2 3]))    -> [1 2]
-(>>> (@#{min max} 1 2 3))          -> #{1 3}
-(>>> (@{:min min :max max} 1 5 8)) -> {:min 1, :max 8}
+(>>> (@[first second] [1 2 3]))    ; [1 2]
+(>>> (@#{min max} 1 2 3))          ; #{1 3}
+(>>> (@{:min min :max max} 1 5 8)) ; {:min 1, :max 8}
 ```
 
 Lists are handled in a more interesting way. Every list is assumed to be a function application.
@@ -71,7 +82,7 @@ You can combine these transformations:
 ```clojure
 (def first-and-last
   (>>> @(conj [first] last)))
-(first-and-last [1 2 3 4])   -> [1 4]
+(first-and-last [1 2 3 4])   ; [1 4]
 ```
 
 And you can use them with the composition and partial syntax:
@@ -85,6 +96,13 @@ And you can use them with the composition and partial syntax:
   (>>> @(/ reduce:+ count)))
 ```
 
+Like the symbol transformer, `@` allows you to quote subexpressions if you want them to be left
+alone:
+
+```clojure
+(def x 5)
+(def add5-to-first (>>> @(+ 'x first)))
+(add5-to-first [1 2 3])  ; 6
 ### Bindings
 
 You'll notice that we've got this `>>>` macro, but it only takes one argument. If you specify more,
