@@ -107,8 +107,10 @@
 
     (cond (symbol? form) (wrap (rewrite-symbol form))
           (vector? form) (wrap `(fn [& ~args] ~(vec (map #(rewrite-lift % args) form))))
-          (map?    form) (wrap `(fn [& ~args] ~(into {} (map #(rewrite-lift % args) form))))
           (set?    form) (wrap `(fn [& ~args] ~(into #{} (map #(rewrite-lift % args) form))))
+          (map?    form) (wrap `(fn [& ~args] ~(into {}  (map (comp vec (partial map
+                                                                          #(rewrite-lift % args)))
+                                                              (seq form)))))
           (seq?    form) (if (= 'quote (first form))
                            (second form)
                            (wrap `(fn [& ~args]

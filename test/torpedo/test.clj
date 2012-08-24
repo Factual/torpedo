@@ -21,9 +21,13 @@
        @#{first second}    [1 2 3] #{1 2}
        @#{first apply:max} [1 2 3] #{1 3}
 
+       @{':first first}           [1 2 3] {:first 1}
+       @{(+ first last) reduce:+} [1 2 3] {4 6}
+
        @(/ reduce:+ count)    [1 3 5]           3
        @(zipmap keys vals)    {':foo 1 ':bar 2} {:foo 1 :bar 2}
        @(zipmap vals keys)    {':foo 1 ':bar 2} {1 :foo 2 :bar}
+
        @(identity identity)   5                 5
        @(+ first last)        [1 2 3]           4
        @(+ (first rest) last) [1 2 3]           5))
