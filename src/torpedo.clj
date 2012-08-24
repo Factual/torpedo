@@ -92,9 +92,9 @@
   as @):
 
   @[a b ...]   = (fn [& args] [(apply @a args) (apply @b args) ...])
-  @{k1 v1 ...} = (fn [& args] {k1 (apply @v1 args) ...})
-  @(f x y ...) = (fn [& args] (f @x @y ...))
+  @{k1 v1 ...} = (fn [& args] {(apply @k1 args) (apply @v1 args) ...})
   @#{x y ...}  = (fn [& args] #{@x @y ...})
+  @(f x y ...) = (fn [& args] (f @x @y ...))
   @'x          = x
   "
   [form & [args-name]]
@@ -107,9 +107,8 @@
 
     (cond (symbol? form) (wrap (rewrite-symbol form))
           (vector? form) (wrap `(fn [& ~args] ~(vec (map #(rewrite-lift % args) form))))
-          (map?    form) (wrap `(fn [& ~args] ~(zipmap (keys form) (map #(rewrite-lift % args)
-                                                                        (vals form)))))
-          (set?    form) (wrap `(fn [& ~args] ~(set (map #(rewrite-lift % args) form))))
+          (map?    form) (wrap `(fn [& ~args] ~(into {} (map #(rewrite-lift % args) form))))
+          (set?    form) (wrap `(fn [& ~args] ~(into #{} (map #(rewrite-lift % args) form))))
           (seq?    form) (if (= 'quote (first form))
                            (second form)
                            (wrap `(fn [& ~args]

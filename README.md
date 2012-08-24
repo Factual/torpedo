@@ -52,12 +52,12 @@ You can also compose with numbers to select individual arguments. For example:
 
 You can prepend subexpressions with `@` to lift them into functional mode. This works for maps, sets,
 vectors, and lists. For maps, sets, and vectors, it transposes function application across each
-element. For example:
+element. (Note that map keys are also transformed!) For example:
 
 ```clojure
-(>>> (@[first second] [1 2 3]))    ; [1 2]
-(>>> (@#{min max} 1 2 3))          ; #{1 3}
-(>>> (@{:min min :max max} 1 5 8)) ; {:min 1, :max 8}
+(>>> (@[first second] [1 2 3]))      ; [1 2]
+(>>> (@#{min max} 1 2 3))            ; #{1 3}
+(>>> (@{':min min ':max max} 1 5 8)) ; {:min 1, :max 8}
 ```
 
 Lists are handled in a more interesting way. Every list is assumed to be a function application.
