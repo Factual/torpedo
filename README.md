@@ -96,8 +96,8 @@ it will construct a `let`-binding using the remaining forms. For example:
      x   5)
 ; expands into:
 ; (let [x 5
-        sum (+ x 10)]
-    sum)
+;       sum (+ x 10)]
+;   sum)
 ```
 
 Unlike `let`, `>>>` expects bindings to _precede_, not _follow_, their dependencies.
