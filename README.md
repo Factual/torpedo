@@ -50,14 +50,21 @@ You can also compose with numbers to select individual arguments. For example:
 
 ### Function lifting
 
-You can prepend subexpressions with `@` to lift them into functional mode. This works for maps, sets,
-vectors, and lists. For maps, sets, and vectors, it transposes function application across each
-element. (Note that map keys are also transformed!) For example:
+You can prepend subexpressions with `@` to lift them into functional mode. This works for maps,
+sets, vectors, and lists. For maps, sets, and vectors, it transposes function application across the
+elements in the container. (Note that map keys are also transformed!) For example:
 
 ```clojure
 (>>> (@[first second] [1 2 3]))      ; [1 2]
 (>>> (@#{min max} 1 2 3))            ; #{1 3}
 (>>> (@{':min min ':max max} 1 5 8)) ; {:min 1, :max 8}
+```
+
+Notice from the `min` and `max` examples that all outer arguments are forwarded to the functions
+inside the data structures. You can use number composition to select a particular argument:
+
+```clojure
+(>>> (@{':first count.0 ':last count.-1} [1 2 3] [4 5] [6])) ; {:first 3, :last 1}
 ```
 
 Lists are handled in a more interesting way. Every list is assumed to be a function application.
