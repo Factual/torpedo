@@ -103,6 +103,8 @@ alone:
 (def x 5)
 (def add5-to-first (>>> @(+ 'x first)))
 (add5-to-first [1 2 3])  ; 6
+```
+
 ### Bindings
 
 You'll notice that we've got this `>>>` macro, but it only takes one argument. If you specify more,
