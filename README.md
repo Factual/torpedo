@@ -132,6 +132,13 @@ Also unlike `let`, `>>>` allows you to bind functions without using anonymous fu
 ;   (sum [1 2 3 4 5]))
 ```
 
+You can also build curried functions this way:
+
+```clojure
+(>>> (add 5)
+     ((add x) y) (+ x y))
+```
+
 ## License
 
 Copyright (C) 2012 Spencer Tipping
