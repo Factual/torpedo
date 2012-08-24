@@ -28,14 +28,17 @@
   lvalues that appear to be invocations and wrap the corresponding right-hand sides in anonymous
   functions. For example:
 
-  (f x) (+ x 1)   -> f (fn [x] (+ x 1))
+  (f x) (+ x 1)   -> f (fn f [x] (+ x 1))
+
+  If the function part of the left-hand side is a symbol, we use that as the name of the anonymous
+  function (so that recursion works).
   "
   [binding-vector]
   (let [expand-fn (fn [lhs rhs] (if (symbol? (first lhs))
                                   `(fn ~(first lhs) [~@(next lhs)] ~rhs)
                                   `(fn [~@(next lhs)] ~rhs)))
         expand-all (fn expand-all [[lhs rhs]] (if (list? lhs)
-                                                (expand-all [(first lhs) (expand-fn lhs rhs)])
+                                                (recur [(first lhs) (expand-fn lhs rhs)])
                                                 [lhs (rewrite rhs)]))]
     (vec (mapcat expand-all (reverse (partition 2 binding-vector))))))
 
