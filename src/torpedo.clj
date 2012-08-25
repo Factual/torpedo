@@ -55,6 +55,7 @@
   -3            -> (fn [& args] (nth args (+ (count args) -3)))
   '3            -> 3
   'x            -> (quote x)
+
   f.g.h...      -> (comp f g h ...)
   f:x:y:...     -> (partial f x y ...)
   f..g..h....   -> (comp f g h ...) but lower precedence
@@ -86,7 +87,10 @@
         inner-partials (prefixed-map 'partial #(inner-comp     (s/split % #"\.")))
         outer-comp     (prefixed-map 'comp    #(inner-partials (s/split % #":")))
         outer-partials (prefixed-map 'partial #(outer-comp     (s/split % #"\.\.")))]
-    (outer-partials (s/split (name sym) #":\."))))
+
+    (if (re-matches #".*[:.][^/]*" (str sym))
+      (outer-partials (s/split (str sym) #":\."))
+      sym)))
 
 (defn apply-value
   "

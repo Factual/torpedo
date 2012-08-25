@@ -68,9 +68,8 @@
         (* n (partial-fact'.dec n))
         base))
 
- (def join-fn 's/join)
  (def separator " ")
- (def joiner join-fn:separator)
+ (def joiner s/join:separator)
 
  (deftest def-rewriting
    (are [in out] (= in out)

@@ -293,30 +293,33 @@ one form at a time, whereas `>>>` lets you define arbitrarily many.
 
 ## Caveats
 
-There are two big things to watch out for when using this library. First, know that it fails
-horribly if you try to use composition/partial syntax in conjunction with explicit namespaces. For
-example:
+There are two big things to watch out for when using this library.
+
+### Symbol namespaces
+
+Torpedo only partially supports symbols with namespaces. In particular, if it sees a symbol that
+contains a slash _after_ a dot or colon, it will leave that symbol alone (since dots within that
+symbol could be unreliable). For example:
+
+```clojure
+(>>>>
+ (def separator " ")
+ (def joiner clojure.string/join:separator))  ; no partial here; this blows up
+```
+
+You can, however, use a punctuation-free namespace. The only restriction is that all of the
+namespace slashes must precede any dots or colons:
 
 ```clojure
 (ns ...
  (:require [clojure.string :as s]))
 (>>>>
  (def separator " ")
- (def joiner s/join:separator))  ; blows up at compile time: "join" not found
+ (def joiner s/join:separator)             ; this does the right thing
+ (def countjoin count..s/join:separator))  ; this blows up
 ```
 
-Torpedo removes the namespace from every symbol it sees; the somewhat lame workaround is to quote
-these symbols to prevent Torpedo from transforming them:
-
-```clojure
-(>>>>
- (def join-fn 's/join)
- (def separator " ")
- (def joiner join-fn:separator))  ; this works
-```
-
-Fixing this would make the expansion rules ambiguous in limit cases, and at the very least subject
-to runtime bindings, so this will probably remain a failure case for the foreseeable future.
+### Quoted stuff
 
 The other big caveat is quoting. If you quote something in Torpedo, you're telling it to leave that
 form alone; but in the process Torpedo removes the quotation around that form. So, for example:
