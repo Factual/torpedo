@@ -1,6 +1,7 @@
 (ns torpedo.test
   (:use [torpedo] :reload)
-  (:use [clojure.test]))
+  (:use [clojure.test])
+  (:require [clojure.string :as s]))
 
 (deftest symbol-rewriting
   (are [form args result] (= ((>>> form) args) result)
@@ -67,7 +68,13 @@
         (* n (partial-fact'.dec n))
         base))
 
+ (def join-fn 's/join)
+ (def separator " ")
+ (def joiner join-fn:separator)
+
  (deftest def-rewriting
    (are [in out] (= in out)
         (f 10)               11
-        ((partial-fact 3) 5) 60)))
+        ((partial-fact 3) 5) 60
+
+        (joiner [1 2 3]) "1 2 3")))

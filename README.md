@@ -298,7 +298,21 @@ horribly if you try to use composition/partial syntax in conjunction with explic
 example:
 
 ```clojure
-(>>> clojure.core/reduce:+)  ; blows up at compile-time; assumes clojure.core/reduce is a composition
+(ns ...
+ (:require [clojure.string :as s]))
+(>>>>
+ (def separator " ")
+ (def joiner s/join:separator))  ; blows up at compile time: "join" not found
+```
+
+Torpedo removes the namespace from every symbol it sees; the somewhat lame workaround is to quote
+these symbols to prevent Torpedo from transforming them:
+
+```clojure
+(>>>>
+ (def join-fn 's/join)
+ (def separator " ")
+ (def joiner join-fn:separator))  ; this works
 ```
 
 Fixing this would make the expansion rules ambiguous in limit cases, and at the very least subject
