@@ -13,8 +13,14 @@ $ cd torpedo
 $ lein install
 ```
 
-Then import the torpedo macros, which are `>>>` and `>>>>`. You use `>>>` on expressions and `>>>>`
-on blocks of code (the distinction is described in more detail below).
+The project dependency should be this:
+
+```clojure
+[torpedo "0.1.0-SNAPSHOT"]
+```
+
+Then you can import the torpedo macros, which are `>>>` and `>>>>`. `>>>` is used on expressions and
+`>>>>` on blocks of code (this distinction is described in more detail below).
 
 ```clojure
 (ns my.namespace
@@ -41,14 +47,14 @@ on blocks of code (the distinction is described in more detail below).
  (def average @(/ double..reduce:+ count))
  (def variance @(- average..map:sqr sqr.average))
  (def ((random-generator lower upper))
-      (+ lower (rand.- upper lower))))
+      (+:lower..rand.- upper lower)))   ; ok, this might be demotivational...
 ```
 
 ## Examples
 
 Torpedo supports three main features to help make your code more compact:
 
-### Composition and partial syntax
+### Feature 1: Composition and partial syntax
 
 If you write a symbol that contains `.` or `:`, Torpedo will turn it into a composition or partial
 application. For example:
@@ -106,7 +112,7 @@ code. This can be useful in cases such as:
 (all-but-a '[a b c d e])        ; (b c d e)
 ```
 
-### Function lifting
+### Feature 2: Function lifting
 
 You can prepend subexpressions with `@` to lift them into functional mode. This works for maps,
 sets, vectors, and lists. For maps, sets, and vectors, it transposes function application across the
@@ -180,7 +186,7 @@ alone:
 (add5-to-first [1 2 3])  ; 6
 ```
 
-### Bindings
+### Feature 3: Bindings
 
 You'll notice that so far all of our invocations of `>>>` have involved just one argument. If you
 specify more, it will construct a `let`-binding using the remaining forms. For example:
@@ -239,6 +245,8 @@ closure you want by suffixing the function name with an apostrophe:
 One apostrophe indicates that you want to close over one layer of parameters; so you can reuse the
 outer closure over `b`.
 
+## Alternative forms
+
 ### Transforming blocks of code
 
 All of the examples above use the `>>>` macro, which transforms single expressions. But you can also
@@ -268,6 +276,8 @@ Quoted subexpressions work correctly if you do this; you won't need to double-qu
 because it's inside two layers of macros. (Internally, the outer macro macroexpands the inner one
 and leaves the result untouched.)
 
+### `def` rewriting
+
 Torpedo also does binding rewriting specifically for `def` (though not `defn` or other definition
 forms, since these expect formals):
 
@@ -278,7 +288,34 @@ forms, since these expect formals):
 ```
 
 The behavior of this form is identical to the bindings in `>>>`; that is, you can use currying,
-intermediate closure functions are named, etc.
+intermediate closure functions are named, etc. The only difference is that `def` still defines just
+one form at a time, whereas `>>>` lets you define arbitrarily many.
+
+## Caveats
+
+There are two big things to watch out for when using this library. First, know that it fails
+horribly if you try to use composition/partial syntax in conjunction with explicit namespaces. For
+example:
+
+```clojure
+(>>> clojure.core/reduce:+)  ; blows up at compile-time; assumes clojure.core/reduce is a composition
+```
+
+Fixing this would make the expansion rules ambiguous in limit cases, and at the very least subject
+to runtime bindings, so this will probably remain a failure case for the foreseeable future.
+
+The other big caveat is quoting. If you quote something in Torpedo, you're telling it to leave that
+form alone; but in the process Torpedo removes the quotation around that form. So, for example:
+
+```clojure
+(>>> (first '[a b c]))   ; croaks with "unbound symbol 'a"
+(>>> (first ''[a b c]))  ; you want to say this
+```
+
+Notice that it doesn't matter whether Torpedo would have changed the form; one layer of quotation is
+always removed. (The only exception is when it would have been unambiguous, which happens inside the
+symbol rewriter. `filter:.not=:'a`, for example, is already being transformed, so the quotation on
+`'a` can only mean that you actually want to quote it.)
 
 # License
 
