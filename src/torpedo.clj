@@ -31,12 +31,17 @@
   (f x) (+ x 1)   -> f (fn f [x] (+ x 1))
 
   If the function part of the left-hand side is a symbol, we use that as the name of the anonymous
-  function (so that recursion works).
+  function (so that recursion works). Otherwise, we dig through the lists and append an apostrophe
+  for each layer:
+
+  (((f x) y) z) (+ x y z)  -> f (fn f [x] (fn f' [y] (fn f'' [z] (+ x y z))))
   "
   [binding-vector]
-  (let [expand-fn (fn [lhs rhs] (if (symbol? (first lhs))
-                                  `(fn ~(first lhs) [~@(next lhs)] ~rhs)
-                                  `(fn [~@(next lhs)] ~rhs)))
+  (let [name-of (fn name-of [form] (if (symbol? (first form))
+                                     (first form)
+                                     (symbol (str (name-of (first form)) "'"))))
+
+        expand-fn (fn [lhs rhs] `(fn ~(name-of lhs) [~@(next lhs)] ~rhs))
         expand-all (fn expand-all [[lhs rhs]] (if (list? lhs)
                                                 (recur [(first lhs) (expand-fn lhs rhs)])
                                                 [lhs (rewrite rhs)]))]
@@ -48,25 +53,40 @@
 
   3             -> (fn [& args] (nth args 3))
   -3            -> (fn [& args] (nth args (+ (count args) -3)))
+  '3            -> 3
+  'x            -> (quote x)
   f.g.h...      -> (comp f g h ...)
   f:x:y:...     -> (partial f x y ...)
   f..g..h....   -> (comp f g h ...) but lower precedence
+  f:.x:.y....   -> (partial f x y ...) but lower precedence
 
-  These are listed in descending order of precedence.
+  These are listed in descending order of precedence. Note that the literal numeric syntax isn't a
+  feature built for FP as much as it is a convenience for argument preloading:
+
+  (map +:'3 xs) -> (map (partial + 3) xs)
+
+  Note that you can't specify floating point numbers this way, as that would make the syntax
+  ambiguous. By extension:
+
+  (filter =:'a xs) -> (filter (partial = 'a) xs)
   "
   [sym]
-  (let [promote #(cond (re-matches #"^\d+$" %)  `(fn [& xs#] (nth xs# ~(Integer/parseInt %)))
-                       (re-matches #"^-\d+$" %) `(fn [& xs#] (nth xs# (+ (count xs#)
+  (let [promote #(cond (re-matches #"\d+" %)    `(fn [& xs#] (nth xs# ~(Integer/parseInt %)))
+                       (re-matches #"-\d+" %)   `(fn [& xs#] (nth xs# (+ (count xs#)
                                                                          ~(Integer/parseInt %))))
-                       :else                    (symbol (namespace sym) %))
+                       (re-matches #"'-?\d+" %) (Integer/parseInt (subs % 1))
+                       (re-matches #"'.*" %)    `(quote ~(symbol (subs % 1)))
+                       :else                    (symbol %))
 
         prefixed-map (fn [prefix f] #(if (next %)
                                        (cons prefix (map f %))
                                        (f (first %))))
-        inner-comp (prefixed-map 'comp    promote)
-        partials   (prefixed-map 'partial #(inner-comp (s/split % #"\.")))
-        outer-comp (prefixed-map 'comp    #(partials   (s/split % #":")))]
-    (outer-comp (s/split (name sym) #"\.\."))))
+
+        inner-comp     (prefixed-map 'comp    promote)
+        inner-partials (prefixed-map 'partial #(inner-comp     (s/split % #"\.")))
+        outer-comp     (prefixed-map 'comp    #(inner-partials (s/split % #":")))
+        outer-partials (prefixed-map 'partial #(outer-comp     (s/split % #"\.\.")))]
+    (outer-partials (s/split (name sym) #":\."))))
 
 (defn apply-value
   "
@@ -93,9 +113,11 @@
 
   @[a b ...]   = (fn [& args] [(apply @a args) (apply @b args) ...])
   @{k1 v1 ...} = (fn [& args] {(apply @k1 args) (apply @v1 args) ...})
-  @#{x y ...}  = (fn [& args] #{@x @y ...})
-  @(f x y ...) = (fn [& args] (f @x @y ...))
+  @#{x y ...}  = (fn [& args] #{(apply @x args) (apply @y args) ...})
+  @(f x y ...) = (fn [& args] (f (apply @x args) (apply @y args) ...))
   @'x          = x
+
+  The rewriter optimizes a few cases; this process is documented in apply-value.
   "
   [form & [args-name]]
 
@@ -109,13 +131,12 @@
           (vector? form) (wrap `(fn [& ~args] ~(vec (map #(rewrite-lift % args) form))))
           (set?    form) (wrap `(fn [& ~args] ~(into #{} (map #(rewrite-lift % args) form))))
           (map?    form) (wrap `(fn [& ~args] ~(into {}  (map (comp vec (partial map
-                                                                          #(rewrite-lift % args)))
+                                                                         #(rewrite-lift % args)))
                                                               (seq form)))))
           (seq?    form) (if (= 'quote (first form))
                            (second form)
                            (wrap `(fn [& ~args]
-                                    (~(first form)
-                                     ~@(map #(rewrite-lift % args) (rest form))))))
+                                    (~(first form) ~@(map #(rewrite-lift % args) (rest form))))))
           :else          form)))
 
 (defn rewrite
@@ -127,11 +148,17 @@
   some-symbol   -> see docs for rewrite-symbol
   'x            -> x
   @...          -> (fn [& args] ~(rewrite-lift ...))
+
+  We eagerly macroexpand sub-occurrences of >>>.
   "
   [form]
   (preorder #(cond (symbol? %) (rewrite-symbol %)
                    (seq? %)    (case (first %) clojure.core/deref (rewrite-lift (second %))
                                                quote              (second %)
+                                               def                `(def ~@(rewrite-bindings
+                                                                           (rest %)))
+                                               >>>                (macroexpand-1 %)
+                                               >>>>               (macroexpand-1 %)
                                                                   %)
                    :else %)
              form))
@@ -155,3 +182,11 @@
     `(let ~(rewrite-bindings bindings)
        ~(rewrite expression))
     (rewrite expression)))
+
+(defmacro >>>>
+  "
+  Returns the value of a block of code. This macro doesn't provide a way to bind values directly;
+  for that, you should use >>>.
+  "
+  [& forms]
+  `(do ~@(map rewrite forms)))
