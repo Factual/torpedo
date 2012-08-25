@@ -96,7 +96,7 @@ cases like this, you can quote it:
 ```clojure
 (defn add-three-to
   [xs]
-  (map (partial add 3) xs))
+  (map (partial + 3) xs))
 
 (def add-three-to (>>> map:.+:'3))
 
