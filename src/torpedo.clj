@@ -37,11 +37,11 @@
   (((f x) y) z) (+ x y z)  -> f (fn f [x] (fn f' [y] (fn f'' [z] (+ x y z))))
   "
   [binding-vector]
-  (let [name-of (fn name-of [form] (if (symbol? (first form))
-                                     (first form)
-                                     (symbol (str (name-of (first form)) "'"))))
+  (let [name-of    (fn name-of [form] (if (symbol? (first form))
+                                        (first form)
+                                        (symbol (str (name-of (first form)) "'"))))
 
-        expand-fn (fn [lhs rhs] `(fn ~(name-of lhs) [~@(next lhs)] ~rhs))
+        expand-fn  (fn [lhs rhs] `(fn ~(name-of lhs) [~@(next lhs)] ~rhs))
         expand-all (fn expand-all [[lhs rhs]] (if (list? lhs)
                                                 (recur [(first lhs) (expand-fn lhs rhs)])
                                                 [lhs (rewrite rhs)]))]
@@ -55,6 +55,7 @@
   -3            -> (fn [& args] (nth args (+ (count args) -3)))
   '3            -> 3
   'x            -> (quote x)
+  ':foo         -> :foo
 
   f.g.h...      -> (comp f g h ...)
   f:x:y:...     -> (partial f x y ...)
@@ -76,20 +77,25 @@
                        (re-matches #"-\d+" %)   `(fn [& xs#] (nth xs# (+ (count xs#)
                                                                          ~(Integer/parseInt %))))
                        (re-matches #"'-?\d+" %) (Integer/parseInt (subs % 1))
+                       (re-matches #":.*" %)    (keyword (subs % 1))
+                       (re-matches #"':.*" %)   (keyword (subs % 2))
                        (re-matches #"'.*" %)    `(quote ~(symbol (subs % 1)))
                        :else                    (symbol %))
 
-        prefixed-map (fn [prefix f] #(if (next %)
-                                       (cons prefix (map f %))
-                                       (f (first %))))
+        prefixed-map (fn [prefix f] #(if (next %) (cons prefix (map f %))
+                                                  (f (first %))))
+
+        filter-split (fn [s pattern] (filter #(> (count %) 0) (s/split s pattern)))
 
         inner-comp     (prefixed-map 'comp    promote)
-        inner-partials (prefixed-map 'partial #(inner-comp     (s/split % #"\.")))
-        outer-comp     (prefixed-map 'comp    #(inner-partials (s/split % #":")))
-        outer-partials (prefixed-map 'partial #(outer-comp     (s/split % #"\.\.")))]
+        inner-partials (prefixed-map 'partial #(inner-comp     (filter-split % #"\.")))
+        outer-comp     (prefixed-map 'comp    #(inner-partials (filter-split % #"(?<=[^']):")))
+        outer-partials (prefixed-map 'partial #(outer-comp     (filter-split % #"\.\.")))
 
-    (if (re-matches #".*[:.][^/]*" (str sym))
-      (outer-partials (s/split (str sym) #":\."))
+        string-form    (str sym)]
+
+    (if (re-matches #".*[:.][^/]*" string-form)
+      (outer-partials (filter-split string-form #"(?<=[^']):\."))
       sym)))
 
 (defn apply-value
@@ -131,17 +137,18 @@
                       args-name (apply-value % args-name)
                       :else     %))]
 
-    (cond (symbol? form) (wrap (rewrite-symbol form))
-          (vector? form) (wrap `(fn [& ~args] ~(vec (map #(rewrite-lift % args) form))))
-          (set?    form) (wrap `(fn [& ~args] ~(into #{} (map #(rewrite-lift % args) form))))
-          (map?    form) (wrap `(fn [& ~args] ~(into {}  (map (comp vec (partial map
-                                                                         #(rewrite-lift % args)))
-                                                              (seq form)))))
-          (seq?    form) (if (= 'quote (first form))
-                           (second form)
-                           (wrap `(fn [& ~args]
-                                    (~(first form) ~@(map #(rewrite-lift % args) (rest form))))))
-          :else          form)))
+    (cond (symbol? form)  (wrap (rewrite-symbol form))
+          (keyword? form) (wrap (rewrite-symbol form))
+          (vector? form)  (wrap `(fn [& ~args] ~(vec (map #(rewrite-lift % args) form))))
+          (set?    form)  (wrap `(fn [& ~args] ~(into #{} (map #(rewrite-lift % args) form))))
+          (map?    form)  (wrap `(fn [& ~args] ~(into {}  (map (comp vec (partial map
+                                                                          #(rewrite-lift % args)))
+                                                               (seq form)))))
+          (seq?    form)  (if (= 'quote (first form))
+                            (second form)
+                            (wrap `(fn [& ~args]
+                                     (~(first form) ~@(map #(rewrite-lift % args) (rest form))))))
+          :else           form)))
 
 (defn rewrite
   "
@@ -156,14 +163,15 @@
   We eagerly macroexpand sub-occurrences of >>>.
   "
   [form]
-  (preorder #(cond (symbol? %) (rewrite-symbol %)
-                   (seq? %)    (case (first %) clojure.core/deref (rewrite-lift (second %))
-                                               quote              (second %)
-                                               def                `(def ~@(rewrite-bindings
-                                                                           (rest %)))
-                                               >>>                (macroexpand-1 %)
-                                               >>>>               (macroexpand-1 %)
-                                                                  %)
+  (preorder #(cond (symbol? %)  (rewrite-symbol %)
+                   (keyword? %) (rewrite-symbol %)
+                   (seq? %)     (case (first %) clojure.core/deref (rewrite-lift (second %))
+                                                quote              (second %)
+                                                def                `(def ~@(rewrite-bindings
+                                                                            (rest %)))
+                                                >>>                (macroexpand-1 %)
+                                                >>>>               (macroexpand-1 %)
+                                                                   %)
                    :else %)
              form))
 

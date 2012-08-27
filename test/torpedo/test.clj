@@ -20,7 +20,11 @@
        (filter not=:'x ''[z y x w]) '(z y w)
        (map +:'3:'4    [2 3])       '(9 10)
 
-       (map:.+:'3      [1 2 3])     '(4 5 6)))
+       (map:.+:'3      [1 2 3])     '(4 5 6)
+
+       (map:':foo ''[{:foo bar} {:foo bif}])  '(bar bif)
+       (:foo..zipmap [:foo :bar] ''[bif baz]) 'bif
+       (map:inc..:foo {:foo [1 3 5]})        '(2 4 6)))
 
 (deftest functional-transform
   (are [form args result] (= ((>>> form) args) result)

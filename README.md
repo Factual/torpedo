@@ -4,16 +4,7 @@ Lets you torpedo complex functional expressions.
 
 ## Usage
 
-Torpedo isn't hosted in any public Maven repositories, so you'll need to build and install it to
-your local Maven repo:
-
-```
-$ git clone git://github.com/Factual/torpedo
-$ cd torpedo
-$ lein install
-```
-
-The project dependency should be this:
+Torpedo is hosted on Clojars, so importing it is easy. The Leiningen dependency line looks like this:
 
 ```clojure
 [torpedo "0.1.0-SNAPSHOT"]
@@ -26,6 +17,9 @@ Then you can import the torpedo macros, which are `>>>` and `>>>>`. `>>>` is use
 (ns my.namespace
   (:use [torpedo :only [>>> >>>>]))
 ```
+
+(If you import the whole `torpedo` package, you'll get access to the functions it uses for rewriting
+symbols and lists and such. Which might be useful, depending on what you're doing.)
 
 ## Motivational example
 
@@ -104,12 +98,24 @@ cases like this, you can quote it:
 ; (>>> map:+:'3) produces (partial map + 3) -- which won't work at all.
 ```
 
-Quoting a number produces a numeric literal. Quoting anything else produces a `(quote x)` in your
-code. This can be useful in cases such as:
+Quoting a number produces a numeric literal. Quoting a keyword produces a keyword literal. Quoting
+anything else produces a `(quote x)` in your code. This can be useful in cases such as:
 
 ```clojure
 (def all-but-a (>>> filter:.not=:'a))
 (all-but-a '[a b c d e])        ; (b c d e)
+
+(def foos-in (>>> filter:.contains?:':foo))
+(foos-in [#{:foo} {:foo 'bar} [1 2 3]])  ; (#{:foo} {:foo 'bar})
+```
+
+As a rule, you should quote any keyword that you want to compose or partial. The only exception is
+that you don't need to quote a whole symbol just because it starts with a keyword; if you did this,
+Torpedo would ignore it:
+
+```clojure
+(>>> (:foo.zipmap [:foo :bar] [1 2]))   ; ((comp :foo zipmap) [:foo :bar] [1 2]) -> 1
+(>>> (':foo.zipmap [:foo :bar] [1 2]))  ; (:foo.zipmap [:foo :bar] [1 2])        -> [1 2]
 ```
 
 ### Feature 2: Function lifting
