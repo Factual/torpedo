@@ -105,7 +105,7 @@ anything else produces a `(quote x)` in your code. This can be useful in cases s
 (def all-but-a (>>> filter:.not=:'a))
 (all-but-a '[a b c d e])        ; (b c d e)
 
-(def foos-in (>>> filter:.contains?:':foo))
+(def foos-in (>>> filter:':foo))
 (foos-in [#{:foo} {:foo 'bar} [1 2 3]])  ; (#{:foo} {:foo 'bar})
 ```
 
